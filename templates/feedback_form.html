@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Feedback Form</title>
+    <style>
+       /* Basic Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f0f2f5;
+  color: #333;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+h1 {
+  color: #007bff;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Form and interaction styling */
+form {
+  margin-bottom: 30px;
+}
+
+label {
+  margin-top: 10px;
+  display: block;
+  color: #606770;
+}
+
+textarea {
+  width: calc(100% - 20px);
+  margin-top: 5px;
+  padding: 10px;
+  border: 1px solid #ccd0d5;
+  border-radius: 5px;
+  resize: vertical;
+}
+
+input[type="submit"] {
+  background-color: #42b72a;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+input[type="submit"]:hover {
+  background-color: #369222;
+}
+
+.pie-chart {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px; /* Adjust based on your preference */
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.pie-chart canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+
+/* Visualization Styling */
+.pie-chart, .histogram-chart {
+  text-align: center;
+  margin-top: 20px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Side Panel Styling */
+.side-panel {
+  position: absolute;
+  right: 40px;
+  top: 100px;
+  width: 300px;
+  background: #007bff;
+  color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+.side-panel h2 {
+  border-bottom: 2px solid rgba(255,255,255,0.5);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+ul {
+  list-style-type: none;
+}
+
+ul li {
+  margin-bottom: 10px;
+}
+
+/* Animation and Pop-outs */
+.pop-outin {
+  animation: popoutin 1s ease-out;
+}
+
+@keyframes popoutin {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .side-panel {
+    position: static;
+    width: auto;
+    margin: 20px auto;
+  }
+
+  .container, .pie-chart, .histogram-chart {
+    margin: 20px 10px;
+  }
+}
+
+/* Ensure the parent container has a relative position */
+body, .container {
+  position: relative;
+}
+
+/* Updated side-panel CSS */
+.side-panel {
+  position: fixed;
+  right: -350px; /* Hide the panel initially by setting it outside the viewport */
+  top: 100px;
+  width: 300px;
+  transition: right 0.5s; /* Smooth transition for toggling effect */
+  /* Rest of the styles remain unchanged */
+}
+
+#togglePanel {
+  padding: 10px 20px; /* Adjust padding as needed */
+  font-size: 16px; /* Adjust font size as needed */
+  background-color: #007bff; /* Button background color */
+  color: #fff; /* Button text color */
+  border: none; /* Remove button border */
+  border-radius: 5px; /* Rounded corners */
+  cursor: pointer; /* Show pointer cursor on hover */
+}
+
+#togglePanel:hover {
+  background-color: #0056b3; /* Darker background color on hover */
+}
+#sentiment_result{
+    padding: 20px;
+}
+
+
+
+    </style>
+    
+</head>
+<body>
+    <div class="container">
+        <h1>Opinion Central - # Sentiment AnalysisI</h1>
+        <div id="accuracy">Accuracy of the model : {{ accuracy }}%</div>
+        <form id="feedbackForm" action="/analyze_sentiment" method="post">
+            <label for="feedback">Enter your feedback:</label>
+            <textarea id="feedback" name="text" rows="4" cols="50"></textarea>
+            <div id="word_count"></div>
+            <input type="submit" value="Submit">
+        </form>
+
+           <!-- Toggle Button for Side Panel -->
+            <button id="togglePanel">Recent Reviews</button>
+        
+       
+
+    
+            <div class='line'>
+                <h2 class='pop-outin' id="sentiment_result"></h2>
+              </div>
+
+
+    </div>
+    <div class="pie-chart">
+       <!-- Original canvas element without inline size -->
+        <canvas id="sentimentChart"></canvas>
+    </div>
+    <div class="container">
+        <h2>Word Frequency Histogram</h2>
+        <canvas id="wordHistogram" class="histogram-chart"></canvas>
+    </div>
+
+    
+     
+
+   
+    <div class="side-panel">
+        <h2>Top Positive Reviews</h2>
+        <ul id="positiveReviews"></ul>
+    </div>
+    
+
+    <script>
+        document.getElementById('togglePanel').addEventListener('click', function() {
+          const sidePanel = document.querySelector('.side-panel');
+          if (sidePanel.style.right === '0px' || sidePanel.style.right === '') {
+            sidePanel.style.right = '-350px'; // Hide the panel
+          } else {
+            sidePanel.style.right = '0px'; // Show the panel
+          }
+        });
+      </script>
+      
+    
+
+    <script>
+        document.getElementById('feedbackForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+    
+            // Get the feedback text from the textarea
+            const feedbackText = document.getElementById('feedback').value;
+    
+            // Count word occurrences
+            const words = feedbackText.split(/\s+/);
+            const wordCount = {};
+            words.forEach(word => {
+                wordCount[word] = (wordCount[word] || 0) + 1;
+            });
+    
+            // Find the word with the maximum count
+            let maxCount = 0;
+            let maxWord = '';
+            for (const [word, count] of Object.entries(wordCount)) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    maxWord = word;
+                }
+            }
+    
+            // Display the word with the maximum count
+            document.getElementById('word_count').innerText = `Most Frequent Word: ${maxWord} (${maxCount} times)`;
+    
+            // Send an AJAX request to analyze sentiment
+            fetch('/analyze_sentiment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({ 'text': feedbackText }),
+            })
+            .then(response => response.json())
+            // After receiving sentiment data from the server
+.then(data => {
+    // Display the sentiment result
+    console.log("Sentiment received:", data.sentiment);
+
+    const sentimentResult = data.sentiment.trim().toLowerCase(); // Trim and lowercase the sentiment string
+
+    // Update the sentiment result text
+    document.getElementById('sentiment_result').innerText = `${sentimentResult}`;
+
+    // Update the background color of the .line div based on sentiment
+    const lineDiv = document.getElementById('sentiment_result');
+    console.log("Line div:", lineDiv);
+    if (sentimentResult === 'positive') {
+        lineDiv.style.backgroundColor = 'lightgreen'; // Green for positive sentiment
+        lineDiv.innerText = "Thank you for giving positive feedback! We are thrilled to hear you had a great experience. Your support motivates us to keep doing our best. If there is anything more we can do for you, please let us know.";
+
+    } else if (sentimentResult === 'negative') {
+        lineDiv.style.backgroundColor = 'lightcoral'; // Red for negative sentiment
+        lineDiv.innerText = "We are sorry to hear that your experience did not meet your expectations. We are committed to improving, and your feedback is crucial in this process.";
+
+    } else {
+        lineDiv.style.backgroundColor = 'lightblue'; // Blue for neutral sentiment
+        lineDiv.innerText = "Neutral feedback.";
+    }
+})
+.catch(error => console.error("Error fetching sentiment:", error)); // Add error handling
+
+        });
+    </script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    fetch('/sentiment_data')
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('sentimentChart').getContext('2d');
+            const sentimentChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        data: Object.values(data),
+                        backgroundColor: ['red', 'blue', 'lightgreen'],
+                        borderColor: ['rgba(94, 162, 235, 1)', 'rgba(255,99,132,1)', 'rgba(255, 206, 86, 1)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Sentiment Distribution'
+                    }
+                }
+            });
+        });
+        fetch('/word_counts')
+    .then(response => response.json())
+    .then(data => {
+        // Sort the word counts from max to min
+        const sortedData = Object.entries(data).sort((a, b) => b[1] - a[1]);
+        
+        // Get stop words list (you may need to replace this with your own stop words list)
+        const stopWords = ["I", "we", "was", "have", "it", "a", "the", "The" , "and" , "but"]; // Add more stop words as needed
+        
+        // Filter out stop words from the top words
+        const topWords = sortedData.slice(0, 50).filter(([word, count]) => !stopWords.includes(word)).map(([word, count]) => word);
+        
+        const ctx = document.getElementById('wordHistogram').getContext('2d');
+        const wordHistogram = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: topWords,
+                datasets: [{
+                    label: 'Word Frequency',
+                    data: sortedData.slice(0, 50).filter(([word, count]) => !stopWords.includes(word)).map(([word, count]) => count),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        });
+    });
+
+
+</script>
+
+<script>
+   let intervalId;
+
+function fetchPositiveReviews() {
+    fetch('/positive_reviews')
+        .then(response => response.json())
+        .then(data => {
+            const positiveReviewsList = document.getElementById('positiveReviews');
+            positiveReviewsList.innerHTML = ''; // Clear previous content
+
+            // Check if there are any reviews
+            if (data.length > 0) {
+                // Select a random review from the array
+                const randomIndex = Math.floor(Math.random() * data.length);
+                const randomReview = data[randomIndex];
+
+                // Display the random review
+                const li = document.createElement('li');
+                li.textContent = randomReview;
+                positiveReviewsList.appendChild(li);
+            } else {
+                // Optionally handle the case where there are no reviews
+                positiveReviewsList.textContent = 'No positive reviews yet!';
+            }
+        });
+}
+
+// Fetch a random positive review initially
+fetchPositiveReviews();
+
+// Clear existing interval if any
+if (intervalId) {
+    clearInterval(intervalId);
+}
+
+// Fetch a random positive review periodically every 30 seconds (adjust as needed)
+intervalId = setInterval(fetchPositiveReviews, 30000);
+
+
+
+</script>
+
+</body>
+</html>
